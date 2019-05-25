@@ -2,6 +2,10 @@
 name = "mimo"
 version = "0.1.0"
 authors = ["Ferran Basora <fcsonline@gmail.com>"]
+description = "Asynchronous backup"
+repository = "https://github.com/fcsonline/mimo"
+keywords = ["async", "backup", "git"]
+license = "MIT"
 edition = "2018"
 
 [dependencies]
