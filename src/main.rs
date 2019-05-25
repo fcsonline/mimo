@@ -6,7 +6,7 @@ use std::time::Duration;
 use std::process::Command;
 
 use clap::{App, SubCommand};
-use notify::{Watcher, RecursiveMode, watcher};
+use notify::{Watcher, RecursiveMode, DebouncedEvent, watcher};
 
 fn init () {
     println!("Initializing directory...");
@@ -18,6 +18,18 @@ fn init () {
 
     init.arg("init").arg(path);
     init.output().expect("process failed to execute");
+}
+
+fn description(event: DebouncedEvent) -> String {
+    match event {
+        DebouncedEvent::NoticeWrite(path) => path.to_str().unwrap().to_string(),
+        DebouncedEvent::NoticeRemove(path) => path.to_str().unwrap().to_string(),
+        DebouncedEvent::Create(path) => path.to_str().unwrap().to_string(),
+        DebouncedEvent::Write(path) => path.to_str().unwrap().to_string(),
+        DebouncedEvent::Chmod(path) => path.to_str().unwrap().to_string(),
+        DebouncedEvent::Remove(path) => path.to_str().unwrap().to_string(),
+        _ => "other".to_string()
+    }
 }
 
 fn listen() {
@@ -39,7 +51,7 @@ fn listen() {
 
     loop {
         match rx.recv() {
-           Ok(_event) => {
+            Ok(event) => {
                 println!("Adding new stuff...");
 
                 let mut add = Command::new("git");
@@ -51,12 +63,13 @@ fn listen() {
                 println!("Committing new stuff...");
 
                 let mut commit = Command::new("git");
+                let message = format!("New changes on {:?}", description(event));
 
-                commit.arg("commit").arg("-m").arg("'New changes'");
+                commit.arg("commit").arg("-m").arg(format!("'{}'", message));
                 commit.current_dir(path);
                 commit.output().expect("process failed to execute");
-           },
-           Err(e) => println!("watch error: {:?}", e),
+            },
+            Err(e) => println!("watch error: {:?}", e),
         }
     }
 }
