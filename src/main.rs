@@ -1,10 +1,12 @@
 extern crate clap;
+extern crate regex;
 
 use std::env;
 use std::sync::mpsc::channel;
 use std::time::Duration;
 use std::process::Command;
 
+use regex::Regex;
 use clap::{App, SubCommand};
 use notify::{Watcher, RecursiveMode, DebouncedEvent, watcher};
 
@@ -20,7 +22,7 @@ fn init () {
     init.output().expect("process failed to execute");
 }
 
-fn description(event: DebouncedEvent) -> String {
+fn event_path(event: DebouncedEvent) -> String {
     match event {
         DebouncedEvent::NoticeWrite(path) => path.to_str().unwrap().to_string(),
         DebouncedEvent::NoticeRemove(path) => path.to_str().unwrap().to_string(),
@@ -30,6 +32,12 @@ fn description(event: DebouncedEvent) -> String {
         DebouncedEvent::Remove(path) => path.to_str().unwrap().to_string(),
         _ => "other".to_string()
     }
+}
+
+fn is_git(path: String) -> bool {
+    let re = Regex::new(r".git").unwrap();
+
+    re.is_match(path.as_str())
 }
 
 fn listen() {
@@ -52,22 +60,26 @@ fn listen() {
     loop {
         match rx.recv() {
             Ok(event) => {
-                println!("Adding new stuff...");
+                let file = event_path(event);
 
-                let mut add = Command::new("git");
+                if !is_git(file.clone()) {
+                    println!("Adding new stuff... {}", file);
 
-                add.arg("add").arg(".");
-                add.current_dir(path);
-                add.output().expect("process failed to execute");
+                    let mut add = Command::new("git");
 
-                println!("Committing new stuff...");
+                    add.arg("add").arg(".");
+                    add.current_dir(path);
+                    add.output().expect("process failed to execute");
 
-                let mut commit = Command::new("git");
-                let message = format!("New changes on {:?}", description(event));
+                    println!("Committing new stuff...");
 
-                commit.arg("commit").arg("-m").arg(format!("'{}'", message));
-                commit.current_dir(path);
-                commit.output().expect("process failed to execute");
+                    let mut commit = Command::new("git");
+                    let message = format!("New changes on {:?}", file);
+
+                    commit.arg("commit").arg("-m").arg(format!("'{}'", message));
+                    commit.current_dir(path);
+                    commit.output().expect("process failed to execute");
+                }
             },
             Err(e) => println!("watch error: {:?}", e),
         }
