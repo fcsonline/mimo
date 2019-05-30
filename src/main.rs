@@ -7,7 +7,7 @@ use std::time::Duration;
 use std::process::Command;
 
 use regex::Regex;
-use clap::{App, SubCommand};
+use clap::{Arg, App, SubCommand};
 use notify::{Watcher, RecursiveMode, DebouncedEvent, watcher};
 
 fn init () {
@@ -40,7 +40,7 @@ fn is_git(path: String) -> bool {
     re.is_match(path.as_str())
 }
 
-fn listen() {
+fn listen(push: bool) {
     let path = env::current_dir().expect("Unknown path");
     let path = path.to_str().unwrap();
 
@@ -79,6 +79,15 @@ fn listen() {
                     commit.arg("commit").arg("-m").arg(format!("'{}'", message));
                     commit.current_dir(path);
                     commit.output().expect("process failed to execute");
+
+                    println!("Committing new stuff...");
+
+                    let mut commit = Command::new("git");
+                    let message = format!("New changes on {:?}", file);
+
+                    commit.arg("commit").arg("-m").arg(format!("'{}'", message));
+                    commit.current_dir(path);
+                    commit.output().expect("process failed to execute");
                 }
             },
             Err(e) => println!("watch error: {:?}", e),
@@ -87,16 +96,21 @@ fn listen() {
 }
 
 fn main() {
+    let listen_command = SubCommand::with_name("listen")
+        .arg(Arg::with_name("push").short("p").long("push").help("Pushed changes").takes_value(false));
+
     let matches = App::new("Incessant")
         .version("1.0")
         .author("Ferran Basora <fcsonline@gmail.com>")
         .about("Asynchronous backup")
-        .subcommand(SubCommand::with_name("listen"))
+        .subcommand(listen_command)
         .subcommand(SubCommand::with_name("init"))
         .get_matches();
 
+    let quiet = matches.is_present("push");
+
     match matches.subcommand_name() {
-        Some("listen") => listen(),
+        Some("listen") => listen(push),
         Some("init") => init(),
         None        => println!("No subcommand was used"),
         _           => println!("Some other subcommand was used"),
